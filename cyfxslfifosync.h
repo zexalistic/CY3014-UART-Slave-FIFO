@@ -55,11 +55,11 @@
 /* Note: For USB 2.0 the endpoints and corresponding sockets are one-to-one mapped
          i.e. EP 1 is mapped to UIB socket 1 and EP 2 to socket 2 so on */
 
-#define CY_FX_EP_PRODUCER               0x03    /* EP 1 OUT */
-#define CY_FX_EP_CONSUMER               0x81    /* EP 1 IN */
+#define CY_FX_EP_PRODUCER               0x02    /* EP 1 OUT */
+#define CY_FX_EP_CONSUMER               0x86    /* EP 1 IN */
 
-#define CY_FX_PRODUCER_USB_SOCKET    CY_U3P_UIB_SOCKET_PROD_3    /* USB Socket 1 is producer */
-#define CY_FX_CONSUMER_USB_SOCKET    CY_U3P_UIB_SOCKET_CONS_1    /* USB Socket 1 is consumer */
+#define CY_FX_PRODUCER_USB_SOCKET    CY_U3P_UIB_SOCKET_PROD_2    /* USB Socket 1 is producer */
+#define CY_FX_CONSUMER_USB_SOCKET    CY_U3P_UIB_SOCKET_CONS_6    /* USB Socket 1 is consumer */
 
 
 /* Used with FX3 Silicon. */
