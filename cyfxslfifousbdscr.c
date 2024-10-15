@@ -39,7 +39,7 @@ const uint8_t CyFxUSB30DeviceDscr[] __attribute__ ((aligned (32))) =
 {
     0x12,                           /* Descriptor size */
     CY_U3P_USB_DEVICE_DESCR,        /* Device descriptor type */
-    0x10,0x03,                      /* USB 3.1 */
+    0x00,0x03,                      /* USB 3.0 */
     0x00,                           /* Device class */
     0x00,                           /* Device sub-class */
     0x00,                           /* Device protocol */
@@ -84,8 +84,7 @@ const uint8_t CyFxUSBBOSDscr[] __attribute__ ((aligned (32))) =
     0x07,                           /* Descriptor size */
     CY_U3P_DEVICE_CAPB_DESCR,       /* Device capability type descriptor */
     CY_U3P_USB2_EXTN_CAPB_TYPE,     /* USB 2.0 extension capability type */
-    0x1E,0x64,0x00,0x00,            /* Supported device level features: LPM support, BESL supported,
-                                       Baseline BESL=400 us, Deep BESL=1000 us. */
+    0x02,0x00,0x00,0x00,            /* Supported device level features: LPM support  */
 
     /* SuperSpeed device capability */
     0x0A,                           /* Descriptor size */
@@ -139,7 +138,7 @@ const uint8_t CyFxUSBSSConfigDscr[] __attribute__ ((aligned (32))) =
     /* Endpoint descriptor for producer EP */
     0x07,                           /* Descriptor size */
     CY_U3P_USB_ENDPNT_DESCR,        /* Endpoint descriptor type */
-    CY_FX_EP_PRODUCER,              /* Endpoint address and description */
+    SLAVE_FIFO_EP_PRODUCER,              /* Endpoint address and description */
     CY_U3P_USB_EP_BULK,             /* Bulk endpoint type */
     0x00,0x04,                      /* Max packet size = 1024 bytes */
     0x00,                           /* Servicing interval for data transfers : 0 for bulk */
@@ -154,7 +153,7 @@ const uint8_t CyFxUSBSSConfigDscr[] __attribute__ ((aligned (32))) =
     /* Endpoint descriptor for consumer EP */
     0x07,                           /* Descriptor size */
     CY_U3P_USB_ENDPNT_DESCR,        /* Endpoint descriptor type */
-    CY_FX_EP_CONSUMER,              /* Endpoint address and description */
+    SLAVE_FIFO_EP_CONSUMER,              /* Endpoint address and description */
     CY_U3P_USB_EP_BULK,             /* Bulk endpoint type */
     0x00,0x04,                      /* Max packet size = 1024 bytes */
     0x00,                           /* Servicing interval for data transfers : 0 for Bulk */
@@ -166,15 +165,15 @@ const uint8_t CyFxUSBSSConfigDscr[] __attribute__ ((aligned (32))) =
     0x00,                           /* Max streams for bulk EP = 0 (No streams) */
     0x00,0x00,                       /* Service interval for the EP : 0 for bulk */
 
-    /* Interface Association Descriptor */
-      0x08,                           /* Descriptor Size */
-      11,                            /* Interface Association Descr Type: 11 */
-      0x01,                           /* I/f number of first CDC i/f */
-      0x02,                           /* Number of CDC i/f */
-      0x02,                           /*  CDC i/f class code */
-      0x02,                           /*  Subclass code */
-      0x01,                           /* Protocol : Not used */
-      0x00,                           /* String desc index for interface */
+	/* Interface Association Descriptor */
+	0x08,                           /* Descriptor Size */
+	11,                            /* Interface Association Descr Type: 11 */
+	0x01,                           /* I/f number of first CDC i/f */
+	0x02,                           /* Number of CDC i/f */
+	0x02,                           /*  CDC i/f class code */
+	0x02,                           /*  Subclass code */
+	0x01,                           /* Protocol : Not used */
+	0x00,                           /* String desc index for interface */
 
     /* Communication Interface descriptor */
     0x09,                           /* Descriptor size */
@@ -245,7 +244,7 @@ const uint8_t CyFxUSBSSConfigDscr[] __attribute__ ((aligned (32))) =
     /* Endpoint Descriptor(BULK-PRODUCER) */
     0x07,                           /* Descriptor size */
     CY_U3P_USB_ENDPNT_DESCR,        /* Endpoint descriptor type */
-    0x05,                           /* Endpoint address and description */
+    CY_FX_EP_PRODUCER,                           /* Endpoint address and description */
     CY_U3P_USB_EP_BULK,             /* BULK endpoint type */
     0x00,0x04,                      /* Max packet size = 1024 bytes */
     0x00,                           /* Servicing interval for data transfers */
@@ -260,7 +259,7 @@ const uint8_t CyFxUSBSSConfigDscr[] __attribute__ ((aligned (32))) =
     /* Endpoint Descriptor(BULK- CONSUMER) */
     0x07,                           /* Descriptor size */
     CY_U3P_USB_ENDPNT_DESCR,        /* Endpoint descriptor type */
-    0x84,                           /* Endpoint address and description */
+    CY_FX_EP_CONSUMER,                           /* Endpoint address and description */
     CY_U3P_USB_EP_BULK,             /* BULK endpoint type */
     0x00,0x04,                      /* Max packet size = 1024 bytes */
     0x00,                           /* Servicing interval for data transfers */
@@ -282,7 +281,7 @@ const uint8_t CyFxUSBHSConfigDscr[] __attribute__ ((aligned (32))) =
     0x62,0x00,                      /* Length of this descriptor and all sub descriptors */
     0x03,                           /* Number of interfaces */
     0x01,                           /* Configuration number */
-    0x03,                           /* COnfiguration string index */
+    0x00,                           /* COnfiguration string index */
     0x80,                           /* Config characteristics - bus powered */
     0x32,                           /* Max power consumption of device (in 2mA unit) : 100mA */
 
@@ -300,7 +299,7 @@ const uint8_t CyFxUSBHSConfigDscr[] __attribute__ ((aligned (32))) =
     /* Endpoint descriptor for producer EP */
     0x07,                           /* Descriptor size */
     CY_U3P_USB_ENDPNT_DESCR,        /* Endpoint descriptor type */
-    CY_FX_EP_PRODUCER,              /* Endpoint address and description */
+    SLAVE_FIFO_EP_PRODUCER,              /* Endpoint address and description */
     CY_U3P_USB_EP_BULK,             /* Bulk endpoint type */
     0x00,0x02,                      /* Max packet size = 512 bytes */
     0x00,                           /* Servicing interval for data transfers : 0 for bulk */
@@ -308,7 +307,7 @@ const uint8_t CyFxUSBHSConfigDscr[] __attribute__ ((aligned (32))) =
     /* Endpoint descriptor for consumer EP */
     0x07,                           /* Descriptor size */
     CY_U3P_USB_ENDPNT_DESCR,        /* Endpoint descriptor type */
-    CY_FX_EP_CONSUMER,              /* Endpoint address and description */
+    SLAVE_FIFO_EP_CONSUMER,              /* Endpoint address and description */
     CY_U3P_USB_EP_BULK,             /* Bulk endpoint type */
     0x00,0x02,                      /* Max packet size = 512 bytes */
     0x00,                            /* Servicing interval for data transfers : 0 for bulk */
@@ -352,7 +351,7 @@ const uint8_t CyFxUSBHSConfigDscr[] __attribute__ ((aligned (32))) =
 	0x05,                           /* Descriptors Length (5) */
 	0x24,                           /* bDescriptorType: CS_INTERFACE */
 	0x06,                           /* bDescriptorSubType: Union Functional Descriptor */
-	0x00,                           /* bMasterInterface */
+	0x02,                           /* bMasterInterface */
 	0x01,                           /* bSlaveInterface */
 
 	/* Call Management Functional Descriptor */
@@ -385,7 +384,7 @@ const uint8_t CyFxUSBHSConfigDscr[] __attribute__ ((aligned (32))) =
 	/* Endpoint Descriptor(BULK-PRODUCER) */
 	0x07,                           /* Descriptor size */
 	CY_U3P_USB_ENDPNT_DESCR,        /* Endpoint descriptor type */
-	0x05,                           /* Endpoint address and description */
+	CY_FX_EP_PRODUCER,                           /* Endpoint address and description */
 	CY_U3P_USB_EP_BULK,             /* BULK endpoint type */
 	0x00,0x02,                      /* Max packet size = 512 bytes */
 	0x00,                           /* Servicing interval for data transfers */
@@ -393,7 +392,7 @@ const uint8_t CyFxUSBHSConfigDscr[] __attribute__ ((aligned (32))) =
 	/* Endpoint Descriptor(BULK- CONSUMER) */
 	0x07,                           /* Descriptor size */
 	CY_U3P_USB_ENDPNT_DESCR,        /* Endpoint descriptor type */
-	0x84,                           /* Endpoint address and description */
+	CY_FX_EP_CONSUMER,                           /* Endpoint address and description */
 	CY_U3P_USB_EP_BULK,             /* Bulk endpoint type */
 	0x00,0x02,                      /* Max packet size = 512 bytes */
 	0x00                            /* Servicing interval for data transfers */
@@ -426,7 +425,7 @@ const uint8_t CyFxUSBFSConfigDscr[] __attribute__ ((aligned (32))) =
     /* Endpoint descriptor for producer EP */
     0x07,                           /* Descriptor size */
     CY_U3P_USB_ENDPNT_DESCR,        /* Endpoint descriptor type */
-    CY_FX_EP_PRODUCER,              /* Endpoint address and description */
+    SLAVE_FIFO_EP_PRODUCER,              /* Endpoint address and description */
     CY_U3P_USB_EP_BULK,             /* Bulk endpoint type */
     0x40,0x00,                      /* Max packet size = 64 bytes */
     0x00,                           /* Servicing interval for data transfers : 0 for bulk */
@@ -434,7 +433,7 @@ const uint8_t CyFxUSBFSConfigDscr[] __attribute__ ((aligned (32))) =
     /* Endpoint descriptor for consumer EP */
     0x07,                           /* Descriptor size */
     CY_U3P_USB_ENDPNT_DESCR,        /* Endpoint descriptor type */
-    CY_FX_EP_CONSUMER,              /* Endpoint address and description */
+    SLAVE_FIFO_EP_CONSUMER,              /* Endpoint address and description */
     CY_U3P_USB_EP_BULK,             /* Bulk endpoint type */
     0x40,0x00,                      /* Max packet size = 64 bytes */
     0x00                            /* Servicing interval for data transfers : 0 for bulk */
@@ -452,7 +451,7 @@ const uint8_t CyFxUSBStringLangIDDscr[] __attribute__ ((aligned (32))) =
 const uint8_t CyFxUSBManufactureDscr[] __attribute__ ((aligned (32))) =
 {
     0x10,                           /* Descriptor size */
-    CY_U3P_USB_STRING_DESCR,        /* Device descriptor type */
+    0x03,                           /* Device descriptor type */
     'C',0x00,
     'y',0x00,
     'p',0x00,
@@ -471,15 +470,7 @@ const uint8_t CyFxUSBProductDscr[] __attribute__ ((aligned (32))) =
     'X',0x00,
     '3',0x00
 };
-//const uint8_t CyFxUSBProductDscr1[] __attribute__ ((aligned (32)))=
-//{
-//	    0x09,                           /* Descriptor size */
-//	    CY_U3P_USB_STRING_DESCR,        /* Device descriptor type */
-//	    'F',0x00,
-//	    'X',0x00,
-//	    '3',0x00,
-//	    '2',0x00
-//};
+
 /* Place this buffer as the last buffer so that no other variable / code shares
  * the same cache line. Do not add any other variables / arrays in this file.
  * This will lead to variables sharing the same cache line. */

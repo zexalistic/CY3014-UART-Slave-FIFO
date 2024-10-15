@@ -69,11 +69,8 @@
 /* This file should be included only once as it contains
  * structure definitions. Including it in multiple places
  * can result in linker error. */
-#include "cyfxgpif_syncsf.h"
+#include "cyfxgpif2config.h"
 
-
-
-#ifdef cdc
 CyU3PThread       USBUARTAppThread;
 CyU3PDmaChannel   glChHandleUsbtoUart;          /* DMA AUTO (USB TO UART) channel handle.*/
 CyU3PDmaChannel   glChHandleUarttoUsb;          /* DMA AUTO_SIG(UART TO USB) channel handle.*/
@@ -85,17 +82,16 @@ volatile uint16_t glPktsPending = 0;            /* Number of packets that have b
 #define SET_LINE_CODING        0x20
 #define GET_LINE_CODING        0x21
 #define SET_CONTROL_LINE_STATE 0x22
-#endif
 
 
 CyBool_t          glIsApplnActive = CyFalse;
+CyBool_t          glIsApplnActive1 = CyFalse;
 CyU3PThread slFifoAppThread;	        /* Slave FIFO application thread structure */
 CyU3PDmaChannel glChHandleSlFifoUtoP;   /* DMA Channel handle for U2P transfer. */
 CyU3PDmaChannel glChHandleSlFifoPtoU;   /* DMA Channel handle for P2U transfer. */
 
 uint32_t glDMARxCount = 0;               /* Counter to track the number of buffers received from USB. */
 uint32_t glDMATxCount = 0;               /* Counter to track the number of buffers sent to USB. */
-//CyBool_t glIsApplnActive = CyFalse;      /* Whether the loopback application is active or not. */
 
 /* Application Error Handler */
 void
@@ -114,7 +110,7 @@ CyFxAppErrorHandler (
         CyU3PThreadSleep (100);
     }
 }
-#ifdef cdc
+
 void
 CyFxUSBUARTDmaCallback(
         CyU3PDmaChannel   *chHandle, /* Handle to the DMA channel. */
@@ -127,9 +123,8 @@ CyFxUSBUARTDmaCallback(
         glPktsPending++;
     }
 }
-#endif
 
-#ifdef cdc
+/* This function starts the USBUART application */
 void
 CyFxUSBUARTAppStart(
         void )
@@ -170,14 +165,14 @@ CyFxUSBUARTAppStart(
     epCfg.pcktSize = size;
 
     /* Producer endpoint configuration */
-    apiRetStatus = CyU3PSetEpConfig(0x05 , &epCfg);
+    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_PRODUCER , &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         CyFxAppErrorHandler (apiRetStatus);
     }
 
     /* Consumer endpoint configuration */
-    apiRetStatus = CyU3PSetEpConfig(0x84, &epCfg);
+    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_CONSUMER, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         CyFxAppErrorHandler (apiRetStatus);
@@ -188,7 +183,7 @@ CyFxUSBUARTAppStart(
     epCfg.pcktSize = 64;
     epCfg.isoPkts = 1;
 
-    apiRetStatus = CyU3PSetEpConfig(0x02, &epCfg);
+    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_INTERRUPT, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         CyFxAppErrorHandler(apiRetStatus);
@@ -197,9 +192,9 @@ CyFxUSBUARTAppStart(
 
     /* Create a DMA_AUTO channel between usb producer socket and uart consumer socket */
     dmaCfg.size = size;
-    dmaCfg.count = 8;//CY_FX_USBUART_DMA_BUF_COUNT;
-    dmaCfg.prodSckId = CY_U3P_UIB_SOCKET_PROD_5;    //CY_FX_EP_PRODUCER1_SOCKET;
-    dmaCfg.consSckId = CY_U3P_LPP_SOCKET_UART_CONS;   //CY_FX_EP_CONSUMER1_SOCKET;
+    dmaCfg.count = CY_FX_USBUART_DMA_BUF_COUNT;
+    dmaCfg.prodSckId = CY_FX_EP_PRODUCER1_SOCKET;
+    dmaCfg.consSckId = CY_FX_EP_CONSUMER1_SOCKET;
     dmaCfg.dmaMode = CY_U3P_DMA_MODE_BYTE;
     dmaCfg.notification = 0;
     dmaCfg.cb = NULL;
@@ -218,8 +213,8 @@ CyFxUSBUARTAppStart(
     /* Create a DMA_MANUAL channel between uart producer socket and usb consumer socket */
     /* Use a smaller buffer size (32 bytes) to ensure that packets get filled in a short time. */
     dmaCfg.size         = 32;
-    dmaCfg.prodSckId    = CY_U3P_LPP_SOCKET_UART_PROD;//CY_FX_EP_PRODUCER2_SOCKET;
-    dmaCfg.consSckId    = CY_U3P_UIB_SOCKET_CONS_5;  //CY_FX_EP_CONSUMER2_SOCKET;
+    dmaCfg.prodSckId    = CY_FX_EP_PRODUCER2_SOCKET;
+    dmaCfg.consSckId    = CY_FX_EP_CONSUMER2_SOCKET;
     dmaCfg.notification = CY_U3P_DMA_CB_PROD_EVENT;
     dmaCfg.cb           = CyFxUSBUARTDmaCallback;
 
@@ -244,12 +239,9 @@ CyFxUSBUARTAppStart(
     }
 
     /* Update the status flag. */
-    glIsApplnActive = CyTrue;
-}
-#endif
+    glIsApplnActive1 = CyTrue;
+} 
 
-
-#ifdef cdc
 void
 CyFxUSBUARTAppStop (
         void)
@@ -258,12 +250,12 @@ CyFxUSBUARTAppStop (
     CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 
     /* Update the flag. */
-    glIsApplnActive = CyFalse;
+    glIsApplnActive1 = CyFalse;
 
     /* Flush the endpoint memory */
-    CyU3PUsbFlushEp(0x05);
-    CyU3PUsbFlushEp(0x84);
-    CyU3PUsbFlushEp(0x02);
+    CyU3PUsbFlushEp(CY_FX_EP_PRODUCER);
+    CyU3PUsbFlushEp(CY_FX_EP_CONSUMER);
+    CyU3PUsbFlushEp(CY_FX_EP_INTERRUPT);
 
     /* Destroy the channel */
     CyU3PDmaChannelDestroy (&glChHandleUsbtoUart);
@@ -274,28 +266,28 @@ CyFxUSBUARTAppStop (
     epCfg.enable = CyFalse;
 
     /* Producer endpoint configuration. */
-    apiRetStatus = CyU3PSetEpConfig(0x05, &epCfg);
+    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_PRODUCER, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         CyFxAppErrorHandler (apiRetStatus);
     }
 
     /* Consumer endpoint configuration. */
-    apiRetStatus = CyU3PSetEpConfig(0x84, &epCfg);
+    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_CONSUMER, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         CyFxAppErrorHandler (apiRetStatus);
     }
 
     /* Interrupt endpoint configuration. */
-    apiRetStatus = CyU3PSetEpConfig(0x02, &epCfg);
+    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_INTERRUPT, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         CyFxAppErrorHandler (apiRetStatus);
     }
 }
-#endif
-/* DMA callback function to handle the produce events for U to P transfers. */
+
+/* This is the callback function to handle the USB events. */
 void
 CyFxSlFifoUtoPDmaCallback (
         CyU3PDmaChannel   *chHandle,
@@ -394,7 +386,7 @@ CyFxSlFifoApplnStart (
     epCfg.pcktSize = size;
 
     /* Producer endpoint configuration */
-    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_PRODUCER, &epCfg);
+    apiRetStatus = CyU3PSetEpConfig(SLAVE_FIFO_EP_PRODUCER, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         //CyU3PDebugPrint (4, "CyU3PSetEpConfig failed, Error code = %d\n", apiRetStatus);
@@ -402,7 +394,7 @@ CyFxSlFifoApplnStart (
     }
 
     /* Consumer endpoint configuration */
-    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_CONSUMER, &epCfg);
+    apiRetStatus = CyU3PSetEpConfig(SLAVE_FIFO_EP_CONSUMER, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         //CyU3PDebugPrint (4, "CyU3PSetEpConfig failed, Error code = %d\n", apiRetStatus);
@@ -411,8 +403,8 @@ CyFxSlFifoApplnStart (
 
     /* Create a DMA MANUAL channel for U2P transfer.
      * DMA size is set based on the USB speed. */
-    dmaCfg.size  = size;
-    dmaCfg.count = CY_FX_SLFIFO_DMA_BUF_COUNT;
+    dmaCfg.size  = DMA_BUF_SIZE* size;
+    dmaCfg.count = CY_FX_SLFIFO_DMA_BUF_COUNT_U_2_P;
     dmaCfg.prodSckId = CY_FX_PRODUCER_USB_SOCKET;
     dmaCfg.consSckId = CY_FX_CONSUMER_PPORT_SOCKET;
     dmaCfg.dmaMode = CY_U3P_DMA_MODE_BYTE;
@@ -425,46 +417,48 @@ CyFxSlFifoApplnStart (
     dmaCfg.prodAvailCount = 0;
 
     apiRetStatus = CyU3PDmaChannelCreate (&glChHandleSlFifoUtoP,
-            CY_U3P_DMA_TYPE_MANUAL, &dmaCfg);
+            CY_U3P_DMA_TYPE_AUTO, &dmaCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
-        //CyU3PDebugPrint (4, "CyU3PDmaChannelCreate failed, Error code = %d\n", apiRetStatus);
+        CyU3PDebugPrint (4, "CyU3PDmaChannelCreate failed, Error code = %d\n", apiRetStatus);
         CyFxAppErrorHandler(apiRetStatus);
     }
 
-    /* Create a DMA MANUAL channel for P2U transfer. */
+    /* Create a DMA AUTO channel for P2U transfer. */
+    dmaCfg.size  = DMA_BUF_SIZE*size; //increase buffer size for higher performance
+    dmaCfg.count = CY_FX_SLFIFO_DMA_BUF_COUNT_P_2_U; // increase buffer count for higher performance
     dmaCfg.prodSckId = CY_FX_PRODUCER_PPORT_SOCKET;
     dmaCfg.consSckId = CY_FX_CONSUMER_USB_SOCKET;
-    dmaCfg.cb = CyFxSlFifoPtoUDmaCallback;
+    dmaCfg.cb = NULL;
     apiRetStatus = CyU3PDmaChannelCreate (&glChHandleSlFifoPtoU,
-            CY_U3P_DMA_TYPE_MANUAL, &dmaCfg);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-       // CyU3PDebugPrint (4, "CyU3PDmaChannelCreate failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
+            CY_U3P_DMA_TYPE_AUTO, &dmaCfg);
 
-    /* Flush the Endpoint memory */
-    CyU3PUsbFlushEp(CY_FX_EP_PRODUCER);
-    CyU3PUsbFlushEp(CY_FX_EP_CONSUMER);
+	if (apiRetStatus != CY_U3P_SUCCESS)
+	{
+	// CyU3PDebugPrint (4, "CyU3PDmaChannelCreate failed, Error code = %d\n", apiRetStatus);
+	 CyFxAppErrorHandler(apiRetStatus);
+	}
 
-    /* Set DMA channel transfer size. */
-    apiRetStatus = CyU3PDmaChannelSetXfer (&glChHandleSlFifoUtoP, CY_FX_SLFIFO_DMA_TX_SIZE);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        //CyU3PDebugPrint (4, "CyU3PDmaChannelSetXfer Failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-    apiRetStatus = CyU3PDmaChannelSetXfer (&glChHandleSlFifoPtoU, CY_FX_SLFIFO_DMA_RX_SIZE);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        //CyU3PDebugPrint (4, "CyU3PDmaChannelSetXfer Failed, Error code = %d\n", apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
+	/* Flush the Endpoint memory */
+	CyU3PUsbFlushEp(SLAVE_FIFO_EP_PRODUCER);
+	CyU3PUsbFlushEp(SLAVE_FIFO_EP_CONSUMER);
+
+	/* Set DMA channel transfer size. */
+	apiRetStatus = CyU3PDmaChannelSetXfer (&glChHandleSlFifoUtoP, CY_FX_SLFIFO_DMA_TX_SIZE);
+	if (apiRetStatus != CY_U3P_SUCCESS)
+	{
+	 //CyU3PDebugPrint (4, "CyU3PDmaChannelSetXfer Failed, Error code = %d\n", apiRetStatus);
+	 CyFxAppErrorHandler(apiRetStatus);
+	}
+	apiRetStatus = CyU3PDmaChannelSetXfer (&glChHandleSlFifoPtoU, CY_FX_SLFIFO_DMA_RX_SIZE);
+	if (apiRetStatus != CY_U3P_SUCCESS)
+	{
+	 //CyU3PDebugPrint (4, "CyU3PDmaChannelSetXfer Failed, Error code = %d\n", apiRetStatus);
+	 CyFxAppErrorHandler(apiRetStatus);
+	}
 
     /* Update the status flag. */
     glIsApplnActive = CyTrue;
-	CyU3PGpioSetValue (59, CyFalse);
 }
 
 /* This function stops the slave FIFO loop application. This shall be called
@@ -481,8 +475,8 @@ CyFxSlFifoApplnStop (
     glIsApplnActive = CyFalse;
 
     /* Flush the endpoint memory */
-    CyU3PUsbFlushEp(CY_FX_EP_PRODUCER);
-    CyU3PUsbFlushEp(CY_FX_EP_CONSUMER);
+    CyU3PUsbFlushEp(SLAVE_FIFO_EP_PRODUCER);
+    CyU3PUsbFlushEp(SLAVE_FIFO_EP_CONSUMER);
 
     /* Destroy the channel */
     CyU3PDmaChannelDestroy (&glChHandleSlFifoUtoP);
@@ -493,7 +487,7 @@ CyFxSlFifoApplnStop (
     epCfg.enable = CyFalse;
 
     /* Producer endpoint configuration. */
-    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_PRODUCER, &epCfg);
+    apiRetStatus = CyU3PSetEpConfig(SLAVE_FIFO_EP_PRODUCER, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
        // CyU3PDebugPrint (4, "CyU3PSetEpConfig failed, Error code = %d\n", apiRetStatus);
@@ -501,7 +495,7 @@ CyFxSlFifoApplnStop (
     }
 
     /* Consumer endpoint configuration. */
-    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_CONSUMER, &epCfg);
+    apiRetStatus = CyU3PSetEpConfig(SLAVE_FIFO_EP_CONSUMER, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         //CyU3PDebugPrint (4, "CyU3PSetEpConfig failed, Error code = %d\n", apiRetStatus);
@@ -570,30 +564,30 @@ CyFxSlFifoApplnUSBSetupCB (
         {
             if (glIsApplnActive)
             {
-                if (wIndex == CY_FX_EP_PRODUCER)
+                if (wIndex == SLAVE_FIFO_EP_PRODUCER)
                 {
-                    CyU3PUsbSetEpNak (CY_FX_EP_PRODUCER, CyTrue);
+                    CyU3PUsbSetEpNak (SLAVE_FIFO_EP_PRODUCER, CyTrue);
                     CyU3PBusyWait (125);
 
                     CyU3PDmaChannelReset (&glChHandleSlFifoUtoP);
-                    CyU3PUsbFlushEp(CY_FX_EP_PRODUCER);
-                    CyU3PUsbResetEp (CY_FX_EP_PRODUCER);
+                    CyU3PUsbFlushEp(SLAVE_FIFO_EP_PRODUCER);
+                    CyU3PUsbResetEp (SLAVE_FIFO_EP_PRODUCER);
                     CyU3PDmaChannelSetXfer (&glChHandleSlFifoUtoP, CY_FX_SLFIFO_DMA_TX_SIZE);
 
-                    CyU3PUsbSetEpNak (CY_FX_EP_PRODUCER, CyFalse);
+                    CyU3PUsbSetEpNak (SLAVE_FIFO_EP_PRODUCER, CyFalse);
                 }
 
-                if (wIndex == CY_FX_EP_CONSUMER)
+                if (wIndex == SLAVE_FIFO_EP_CONSUMER)
                 {
-                    CyU3PUsbSetEpNak (CY_FX_EP_PRODUCER, CyTrue);
+                    CyU3PUsbSetEpNak (SLAVE_FIFO_EP_PRODUCER, CyTrue);
                     CyU3PBusyWait (125);
 
                     CyU3PDmaChannelReset (&glChHandleSlFifoPtoU);
-                    CyU3PUsbFlushEp(CY_FX_EP_CONSUMER);
-                    CyU3PUsbResetEp (CY_FX_EP_CONSUMER);
+                    CyU3PUsbFlushEp(SLAVE_FIFO_EP_CONSUMER);
+                    CyU3PUsbResetEp (SLAVE_FIFO_EP_CONSUMER);
                     CyU3PDmaChannelSetXfer (&glChHandleSlFifoPtoU, CY_FX_SLFIFO_DMA_RX_SIZE);
 
-                    CyU3PUsbSetEpNak (CY_FX_EP_PRODUCER, CyFalse);
+                    CyU3PUsbSetEpNak (SLAVE_FIFO_EP_PRODUCER, CyFalse);
                 }
 
                 CyU3PUsbStall (wIndex, CyFalse, CyTrue);
@@ -603,7 +597,7 @@ CyFxSlFifoApplnUSBSetupCB (
             }
         }
     }
-#ifdef cdc
+
     /* Check for CDC Class Requests */
     if (bType == CY_U3P_USB_CLASS_RQT)
     {
@@ -725,7 +719,6 @@ CyFxSlFifoApplnUSBSetupCB (
         }
     }
 
-#endif
     return isHandled;
 }
 
@@ -740,32 +733,32 @@ CyFxSlFifoApplnUSBEventCB (
     {
         case CY_U3P_USB_EVENT_SETCONF:
             /* Disable the low power entry to optimize USB throughput */
-            CyU3PUsbLPMDisable();
+            // CyU3PUsbLPMDisable();
             /* Stop the application before re-starting. */
             if (glIsApplnActive)
             {
                 CyFxSlFifoApplnStop ();
-#ifdef cdc
+            }
+            if (glIsApplnActive1)
+            {
                 CyFxUSBUARTAppStop ();
-#endif
             }
             /* Start the loop back function. */
             CyFxSlFifoApplnStart ();
-#ifdef cdc
-
             CyFxUSBUARTAppStart ();
-#endif
             break;
 
         case CY_U3P_USB_EVENT_RESET:
         case CY_U3P_USB_EVENT_DISCONNECT:
             /* Stop the loop back function. */
+        	// CyU3PUsbLPMEnable ();
             if (glIsApplnActive)
             {
                 CyFxSlFifoApplnStop ();
-#ifdef cdc
+            }
+            if (glIsApplnActive1)
+            {
                 CyFxUSBUARTAppStop ();
-#endif
             }
             break;
 
@@ -774,7 +767,23 @@ CyFxSlFifoApplnUSBEventCB (
     }
 }
 
-#ifdef cdc
+/* Callback function to handle LPM requests from the USB 3.0 host. This function is invoked by the API
+   whenever a state change from U0 -> U1 or U0 -> U2 happens. If we return CyTrue from this function, the
+   FX3 device is retained in the low power state. If we return CyFalse, the FX3 device immediately tries
+   to trigger an exit back to U0.
+
+   This application does not have any state in which we should not allow U1/U2 transitions; and therefore
+   the function always return CyTrue.
+ */
+CyBool_t
+CyFxApplnLPMRqtCB (
+        CyU3PUsbLinkPowerMode link_mode)
+{
+    return CyTrue;
+}
+
+
+
 void
 CyFxUSBUARTAppInit (
         void )
@@ -783,11 +792,13 @@ CyFxUSBUARTAppInit (
     CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 
     /* Start the USB functionality. */
-//    apiRetStatus = CyU3PUsbStart();
-//    if (apiRetStatus != CY_U3P_SUCCESS)
-//    {
-//        CyFxAppErrorHandler(apiRetStatus);
-//    }
+    apiRetStatus = CyU3PUsbStart();
+    if (apiRetStatus != CY_U3P_SUCCESS)
+    {
+        /* Error handling */
+       // CyU3PDebugPrint (4, "CyU3PGpioSetSimpleConfig failed, error code = %d\n",apiRetStatus);
+        CyFxAppErrorHandler(apiRetStatus);
+    }
 
     /* Initialize the UART module */
     apiRetStatus = CyU3PUartInit ();
@@ -814,142 +825,6 @@ CyFxUSBUARTAppInit (
         /* Error handling */
         CyFxAppErrorHandler(apiRetStatus);
     }
-}
-#endif
-/* Callback function to handle LPM requests from the USB 3.0 host. This function is invoked by the API
-   whenever a state change from U0 -> U1 or U0 -> U2 happens. If we return CyTrue from this function, the
-   FX3 device is retained in the low power state. If we return CyFalse, the FX3 device immediately tries
-   to trigger an exit back to U0.
-
-   This application does not have any state in which we should not allow U1/U2 transitions; and therefore
-   the function always return CyTrue.
- */
-CyBool_t
-CyFxApplnLPMRqtCB (
-        CyU3PUsbLinkPowerMode link_mode)
-{
-    return CyTrue;
-}
-
-/* This function initializes the GPIF interface and initializes
- * the USB interface. */
-void
-CyFxSlFifoApplnInit (void)
-{
-    CyU3PPibClock_t pibClock;
-    CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
-    CyU3PGpioClock_t gpioClock;
-    CyU3PGpioSimpleConfig_t gpioConfig;
-
-    apiRetStatus = CyU3PUsbStart();
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-
-
-    /* Initialize the p-port block. */
-    pibClock.clkDiv = 2;
-    pibClock.clkSrc = CY_U3P_SYS_CLK;
-    pibClock.isHalfDiv = CyFalse;
-    /* Disable DLL for sync GPIF */
-    pibClock.isDllEnable = CyFalse;
-    apiRetStatus = CyU3PPibInit(CyTrue, &pibClock);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        //CyU3PDebugPrint (4, "P-port Initialization failed, Error Code = %d\n",apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-    /* Load the GPIF configuration for Slave FIFO sync mode. */
-    apiRetStatus = CyU3PGpifLoad (&CyFxGpifConfig);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        //CyU3PDebugPrint (4, "CyU3PGpifLoad failed, Error Code = %d\n",apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-#if (CY_FX_SLFIFO_GPIF_16_32BIT_CONF_SELECT == 1)	
-    CyU3PGpifSocketConfigure (0,CY_U3P_PIB_SOCKET_0,6,CyFalse,1);
-    CyU3PGpifSocketConfigure (3,CY_U3P_PIB_SOCKET_3,6,CyFalse,1);
-#else
-	CyU3PGpifSocketConfigure (0,CY_U3P_PIB_SOCKET_0,3,CyFalse,1);
-    CyU3PGpifSocketConfigure (3,CY_U3P_PIB_SOCKET_3,3,CyFalse,1);
-#endif
-	
-    /* Start the state machine. */
-    apiRetStatus = CyU3PGpifSMStart (RESET, ALPHA_RESET);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        //CyU3PDebugPrint (4, "CyU3PGpifSMStart failed, Error Code = %d\n",apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-	
-	/* Init the GPIO module */
-	gpioClock.fastClkDiv = 2;
-	gpioClock.slowClkDiv = 0;
-	gpioClock.simpleDiv = CY_U3P_GPIO_SIMPLE_DIV_BY_2;
-	gpioClock.clkSrc = CY_U3P_SYS_CLK;
-	gpioClock.halfDiv = 0;
-
-	apiRetStatus = CyU3PGpioInit(&gpioClock, NULL);
-	if (apiRetStatus != 0)
-	{
-		/* Error Handling */
-		//CyU3PDebugPrint (4, "CyU3PGpioInit failed, error code = %d\n", apiRetStatus);
-		CyFxAppErrorHandler(apiRetStatus);
-	}
-
-    /* Configure GPIO 59 as output */
-    gpioConfig.outValue = CyTrue;
-    gpioConfig.driveLowEn = CyTrue;
-    gpioConfig.driveHighEn = CyTrue;
-    gpioConfig.inputEn = CyFalse;
-    gpioConfig.intrMode = CY_U3P_GPIO_NO_INTR;
-    apiRetStatus = CyU3PGpioSetSimpleConfig(59, &gpioConfig);
-    if (apiRetStatus != CY_U3P_SUCCESS)
-    {
-        /* Error handling */
-       // CyU3PDebugPrint (4, "CyU3PGpioSetSimpleConfig failed, error code = %d\n",apiRetStatus);
-        CyFxAppErrorHandler(apiRetStatus);
-    }
-
-//#ifdef cdc
-//    /* Initialize the UART module */
-//    apiRetStatus = CyU3PUartInit ();
-//    if (apiRetStatus != CY_U3P_SUCCESS)
-//    {
-//        /* Error handling */
-//        CyFxAppErrorHandler(apiRetStatus);
-//    }
-//
-//    /* Configure the UART */
-//    CyU3PMemSet ((uint8_t *)&glUartConfig, 0, sizeof (glUartConfig));
-//    glUartConfig.baudRate = CY_U3P_UART_BAUDRATE_115200;
-//    glUartConfig.stopBit = CY_U3P_UART_ONE_STOP_BIT;
-//    glUartConfig.parity = CY_U3P_UART_NO_PARITY;
-//    glUartConfig.flowCtrl = CyFalse;
-//    glUartConfig.txEnable = CyTrue;
-//    glUartConfig.rxEnable = CyTrue;
-//    glUartConfig.isDma = CyTrue;
-//
-//    /* Set the UART configuration */
-//    apiRetStatus = CyU3PUartSetConfig (&glUartConfig, NULL);
-//    if (apiRetStatus != CY_U3P_SUCCESS )
-//    {
-//        /* Error handling */
-//        CyFxAppErrorHandler(apiRetStatus);
-//    }
-//#endif
-
-//    /* Start the USB functionality. */
-//    apiRetStatus = CyU3PUsbStart();
-//    if (apiRetStatus != CY_U3P_SUCCESS)
-//    {
-//        CyU3PDebugPrint (4, "CyU3PUsbStart failed to Start, Error code = %d\n", apiRetStatus);
-//        CyFxAppErrorHandler(apiRetStatus);
-//    }
 
     /* The fast enumeration is the easiest way to setup a USB connection,
      * where all enumeration phase is handled by the library. Only the
@@ -965,7 +840,7 @@ CyFxSlFifoApplnInit (void)
     /* Set the USB Enumeration descriptors */
 
     /* Super speed device descriptor. */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_DEVICE_DESCR, 0, (uint8_t *)CyFxUSB30DeviceDscr);
+    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_DEVICE_DESCR, NULL, (uint8_t *)CyFxUSB30DeviceDscr);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
        // CyU3PDebugPrint (4, "USB set device descriptor failed, Error code = %d\n", apiRetStatus);
@@ -973,7 +848,7 @@ CyFxSlFifoApplnInit (void)
     }
 
     /* High speed device descriptor. */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_HS_DEVICE_DESCR, 0, (uint8_t *)CyFxUSB20DeviceDscr);
+    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_HS_DEVICE_DESCR, NULL, (uint8_t *)CyFxUSB20DeviceDscr);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
        // CyU3PDebugPrint (4, "USB set device descriptor failed, Error code = %d\n", apiRetStatus);
@@ -981,7 +856,7 @@ CyFxSlFifoApplnInit (void)
     }
 
     /* BOS descriptor */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_BOS_DESCR, 0, (uint8_t *)CyFxUSBBOSDscr);
+    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_BOS_DESCR, NULL, (uint8_t *)CyFxUSBBOSDscr);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
        // CyU3PDebugPrint (4, "USB set configuration descriptor failed, Error code = %d\n", apiRetStatus);
@@ -989,7 +864,7 @@ CyFxSlFifoApplnInit (void)
     }
 
     /* Device qualifier descriptor */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_DEVQUAL_DESCR, 0, (uint8_t *)CyFxUSBDeviceQualDscr);
+    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_DEVQUAL_DESCR, NULL, (uint8_t *)CyFxUSBDeviceQualDscr);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
        // CyU3PDebugPrint (4, "USB set device qualifier descriptor failed, Error code = %d\n", apiRetStatus);
@@ -997,7 +872,7 @@ CyFxSlFifoApplnInit (void)
     }
 
     /* Super speed configuration descriptor */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_CONFIG_DESCR, 0, (uint8_t *)CyFxUSBSSConfigDscr);
+    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_CONFIG_DESCR, NULL, (uint8_t *)CyFxUSBSSConfigDscr);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
        // CyU3PDebugPrint (4, "USB set configuration descriptor failed, Error code = %d\n", apiRetStatus);
@@ -1005,7 +880,7 @@ CyFxSlFifoApplnInit (void)
     }
 
     /* High speed configuration descriptor */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_HS_CONFIG_DESCR, 0, (uint8_t *)CyFxUSBHSConfigDscr);
+    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_HS_CONFIG_DESCR, NULL, (uint8_t *)CyFxUSBHSConfigDscr);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
        // CyU3PDebugPrint (4, "USB Set Other Speed Descriptor failed, Error Code = %d\n", apiRetStatus);
@@ -1013,7 +888,7 @@ CyFxSlFifoApplnInit (void)
     }
 
     /* Full speed configuration descriptor */
-    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_FS_CONFIG_DESCR, 0, (uint8_t *)CyFxUSBFSConfigDscr);
+    apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_FS_CONFIG_DESCR, NULL, (uint8_t *)CyFxUSBFSConfigDscr);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         //CyU3PDebugPrint (4, "USB Set Configuration Descriptor failed, Error Code = %d\n", apiRetStatus);
@@ -1053,7 +928,49 @@ CyFxSlFifoApplnInit (void)
     }
 }
 
-#ifdef cdc
+/* This function initializes the GPIF interface and initializes
+ * the USB interface. */
+void
+CyFxSlFifoApplnInit (void)
+{
+    CyU3PPibClock_t pibClock;
+    CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+
+    /* Initialize the p-port block. */
+    pibClock.clkDiv = 2;
+    pibClock.clkSrc = CY_U3P_SYS_CLK;
+    pibClock.isHalfDiv = CyFalse;
+    /* Disable DLL for sync GPIF */
+    pibClock.isDllEnable = CyFalse;
+    apiRetStatus = CyU3PPibInit(CyTrue, &pibClock);
+    if (apiRetStatus != CY_U3P_SUCCESS)
+    {
+        //CyU3PDebugPrint (4, "P-port Initialization failed, Error Code = %d\n",apiRetStatus);
+        CyFxAppErrorHandler(apiRetStatus);
+    }
+
+    /* Load the GPIF configuration for Slave FIFO sync mode. */
+    apiRetStatus = CyU3PGpifLoad (&CyFxGpifConfig);
+    if (apiRetStatus != CY_U3P_SUCCESS)
+    {
+        //CyU3PDebugPrint (4, "CyU3PGpifLoad failed, Error Code = %d\n",apiRetStatus);
+        CyFxAppErrorHandler(apiRetStatus);
+    }
+
+// set the watermark for thread_0 (Ingress) to 5
+    CyU3PGpifSocketConfigure (0,CY_U3P_PIB_SOCKET_0,5,CyFalse,1);
+// set the watermark for thread_3 (Egress) to 0
+    CyU3PGpifSocketConfigure (3,CY_U3P_PIB_SOCKET_3,0,CyFalse,1);
+
+    /* Start the state machine. */
+    apiRetStatus = CyU3PGpifSMStart (RESET, ALPHA_RESET);
+    if (apiRetStatus != CY_U3P_SUCCESS)
+    {
+        //CyU3PDebugPrint (4, "CyU3PGpifSMStart failed, Error Code = %d\n",apiRetStatus);
+        CyFxAppErrorHandler(apiRetStatus);
+    }
+}
+
 void
 USBUARTAppThread_Entry (
         uint32_t input)
@@ -1094,16 +1011,13 @@ USBUARTAppThread_Entry (
         CyU3PThreadSleep (50);
     }
 }
-#endif
+
 
 /* Entry function for the slFifoAppThread. */
 void
 SlFifoAppThread_Entry (
         uint32_t input)
 {
-    /* Initialize the debug module */
-   // CyFxSlFifoApplnDebugInit();
-
     /* Initialize the slave FIFO application */
     CyFxSlFifoApplnInit();
 
@@ -1145,6 +1059,20 @@ CyFxApplicationDefine (
                           CYU3P_AUTO_START                         /* Start the thread immediately */
                           );
 
+    // USB start is called in Slave fifo init. If UART is init before slave fifo, then we need to add it in UART init.
+    retThrdCreate = CyU3PThreadCreate (&USBUARTAppThread,          /* USBUART Example App Thread structure */
+                "22:USBUART_DMA_mode",                   /* Thread ID and Thread name */
+                USBUARTAppThread_Entry,                  /* USBUART Example App Thread Entry function */
+                0,                                       /* No input parameter to thread */
+                ptr1,                                     /* Pointer to the allocated thread stack */
+                1000,                                    /* USBUART Example App Thread stack size */
+                7,//CY_FX_USBUART_THREAD_PRIORITY,            /* USBUART Example App Thread priority */
+                7,//CY_FX_USBUART_THREAD_PRIORITY,            /* USBUART Example App Thread priority */
+                CYU3P_NO_TIME_SLICE,                     /* No time slice for the application thread */
+                CYU3P_AUTO_START                         /* Start the Thread immediately */
+                );
+
+
     /* Check the return code */
     if (retThrdCreate != 0)
     {
@@ -1157,26 +1085,6 @@ CyFxApplicationDefine (
         while(1);
     }
 
-#ifdef cdc
-    retThrdCreate = CyU3PThreadCreate (&USBUARTAppThread,          /* USBUART Example App Thread structure */
-                "22:USBUART_DMA_mode",                   /* Thread ID and Thread name */
-                USBUARTAppThread_Entry,                  /* USBUART Example App Thread Entry function */
-                0,                                       /* No input parameter to thread */
-                ptr1,                                     /* Pointer to the allocated thread stack */
-                1000,                                    /* USBUART Example App Thread stack size */
-                8,//CY_FX_USBUART_THREAD_PRIORITY,            /* USBUART Example App Thread priority */
-                8,//CY_FX_USBUART_THREAD_PRIORITY,            /* USBUART Example App Thread priority */
-                CYU3P_NO_TIME_SLICE,                     /* No time slice for the application thread */
-                CYU3P_AUTO_START                         /* Start the Thread immediately */
-                );
-        /* Check the return code */
-        if (retThrdCreate != 0)
-        {
-
-            /* Loop indefinitely */
-            while(1);
-        }
-#endif
 }
 
 /*
@@ -1187,28 +1095,29 @@ main (void)
 {
     CyU3PIoMatrixConfig_t io_cfg;
     CyU3PReturnStatus_t status = CY_U3P_SUCCESS;
-    CyU3PSysClockConfig_t clockConfig;
+    CyU3PSysClockConfig_t clkCfg;
 
-    /* When the GPIF data bus is configured as 32-bits wide and running at 100 MHz (synchronous),
-       the FX3 system clock has to be set to a frequency greater than 400 MHz. */
-#if (CY_FX_SLFIFO_GPIF_16_32BIT_CONF_SELECT == 0)
-    clockConfig.setSysClk400  = CyFalse;
-#else
-    clockConfig.setSysClk400  = CyTrue;
-#endif
-    clockConfig.cpuClkDiv     = 2;
-    clockConfig.dmaClkDiv     = 2;
-    clockConfig.mmioClkDiv    = 2;
-    clockConfig.useStandbyClk = CyFalse;
-    clockConfig.clkSrc        = CY_U3P_SYS_CLK;
-    status = CyU3PDeviceInit (&clockConfig);
+        /* setSysClk400 clock configurations */
+        clkCfg.setSysClk400 = CyTrue;   /* FX3 device's master clock is set to a frequency > 400 MHz */
+        clkCfg.cpuClkDiv = 2;           /* CPU clock divider */
+        clkCfg.dmaClkDiv = 2;           /* DMA clock divider */
+        clkCfg.mmioClkDiv = 2;          /* MMIO clock divider */
+        clkCfg.useStandbyClk = CyFalse; /* device has no 32KHz clock supplied */
+        clkCfg.clkSrc = CY_U3P_SYS_CLK; /* Clock source for a peripheral block  */
+
+    /* Initialize the device */
+    status = CyU3PDeviceInit (&clkCfg);
     if (status != CY_U3P_SUCCESS)
     {
         goto handle_fatal_error;
     }
 
-    /* Initialize the caches. Enable both Instruction and Data Caches. */
-    status = CyU3PDeviceCacheControl (CyTrue, CyTrue, CyTrue);
+    /* Initialize the caches. Enable instruction cache and keep data cache disabled.
+     * The data cache is useful only when there is a large amount of CPU based memory
+     * accesses. When used in simple cases, it can decrease performance due to large 
+     * number of cache flushes and cleans and also it adds to the complexity of the
+     * code. */
+    status = CyU3PDeviceCacheControl (CyTrue, CyFalse, CyFalse);
     if (status != CY_U3P_SUCCESS)
     {
         goto handle_fatal_error;
@@ -1219,8 +1128,6 @@ main (void)
      * selected or lppMode should be set to UART_ONLY. Here we are choosing
      * UART_ONLY configuration for 16 bit slave FIFO configuration and setting
      * isDQ32Bit for 32-bit slave FIFO configuration. */
-    io_cfg.s0Mode = CY_U3P_SPORT_INACTIVE;
-    io_cfg.s1Mode = CY_U3P_SPORT_INACTIVE;
     io_cfg.useUart   = CyTrue;
     io_cfg.useI2C    = CyFalse;
     io_cfg.useI2S    = CyFalse;
@@ -1234,7 +1141,7 @@ main (void)
 #endif
     /* No GPIOs are enabled. */
     io_cfg.gpioSimpleEn[0]  = 0;
-    io_cfg.gpioSimpleEn[1]  = 0x08000000;
+    io_cfg.gpioSimpleEn[1]  = 0;
     io_cfg.gpioComplexEn[0] = 0;
     io_cfg.gpioComplexEn[1] = 0;
     status = CyU3PDeviceConfigureIOMatrix (&io_cfg);

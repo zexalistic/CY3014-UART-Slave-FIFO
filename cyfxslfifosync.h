@@ -34,32 +34,34 @@
  * Set CY_FX_SLFIFO_GPIF_16_32BIT_CONF_SELECT = 1 for 32 bit GPIF data bus.
  */
 
+#define DMA_BUF_SIZE						  (2)
+#define CY_FX_SLFIFO_DMA_BUF_COUNT_P_2_U      (2)                       /* Slave FIFO P_2_U channel buffer count */
+#define CY_FX_SLFIFO_DMA_BUF_COUNT_U_2_P 	  (2)						/* Slave FIFO U_2_P channel buffer count */
+#define  CY_FX_USBUART_DMA_BUF_COUNT      (4)
+
 #define  cdc
 
 #define CY_FX_SLFIFO_GPIF_16_32BIT_CONF_SELECT (1)
 
-#define CY_FX_SLFIFO_DMA_BUF_COUNT      (2)                       /* Slave FIFO channel buffer count */
 #define CY_FX_SLFIFO_DMA_TX_SIZE        (0)	                  /* DMA transfer size is set to infinite */
 #define CY_FX_SLFIFO_DMA_RX_SIZE        (0)	                  /* DMA transfer size is set to infinite */
 #define CY_FX_SLFIFO_THREAD_STACK       (0x0400)                  /* Slave FIFO application thread stack size */
 #define CY_FX_SLFIFO_THREAD_PRIORITY    (8)                       /* Slave FIFO application thread priority */
 
-/* Endpoint and socket definitions for the Slave FIFO application */
+#define SLAVE_FIFO_EP_PRODUCER               0x02    /* EP 2 OUT */
+#define SLAVE_FIFO_EP_CONSUMER               0x86    /* EP 6 IN */
+#define CY_FX_EP_PRODUCER               0x05                             /* uart EP 5 OUT */
+#define CY_FX_EP_CONSUMER               0x84                             /* UART EP 4 IN */
+#define CY_FX_EP_INTERRUPT 				0x81
 
-/* To change the Producer and Consumer EP enter the appropriate EP numbers for the #defines.
- * In the case of IN endpoints enter EP number along with the direction bit.
- * For eg. EP 6 IN endpoint is 0x86
- *     and EP 6 OUT endpoint is 0x06.
- * To change sockets mention the appropriate socket number in the #defines. */
+#define CY_FX_EP_PRODUCER1_SOCKET        CY_U3P_UIB_SOCKET_PROD_5
+#define CY_FX_EP_CONSUMER1_SOCKET        CY_U3P_LPP_SOCKET_UART_CONS
+#define CY_FX_EP_PRODUCER2_SOCKET        CY_U3P_LPP_SOCKET_UART_PROD
+#define CY_FX_EP_CONSUMER2_SOCKET        CY_U3P_UIB_SOCKET_CONS_4
+#define CY_FX_EP_INTR_CONSUMER1_SOCKET   CY_U3P_UIB_SOCKET_CONS_1
 
-/* Note: For USB 2.0 the endpoints and corresponding sockets are one-to-one mapped
-         i.e. EP 1 is mapped to UIB socket 1 and EP 2 to socket 2 so on */
-
-#define CY_FX_EP_PRODUCER               0x02    /* EP 1 OUT */
-#define CY_FX_EP_CONSUMER               0x86    /* EP 1 IN */
-
-#define CY_FX_PRODUCER_USB_SOCKET    CY_U3P_UIB_SOCKET_PROD_2    /* USB Socket 1 is producer */
-#define CY_FX_CONSUMER_USB_SOCKET    CY_U3P_UIB_SOCKET_CONS_6    /* USB Socket 1 is consumer */
+#define CY_FX_PRODUCER_USB_SOCKET    CY_U3P_UIB_SOCKET_PROD_2    /* USB Socket 2 is producer */
+#define CY_FX_CONSUMER_USB_SOCKET    CY_U3P_UIB_SOCKET_CONS_6    /* USB Socket 6 is consumer */
 
 
 /* Used with FX3 Silicon. */
