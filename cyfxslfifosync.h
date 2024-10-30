@@ -34,10 +34,11 @@
  * Set CY_FX_SLFIFO_GPIF_16_32BIT_CONF_SELECT = 1 for 32 bit GPIF data bus.
  */
 
-#define DMA_BUF_SIZE						  (2)
-#define CY_FX_SLFIFO_DMA_BUF_COUNT_P_2_U      (2)                       /* Slave FIFO P_2_U channel buffer count */
-#define CY_FX_SLFIFO_DMA_BUF_COUNT_U_2_P 	  (2)						/* Slave FIFO U_2_P channel buffer count */
-#define  CY_FX_USBUART_DMA_BUF_COUNT      (4)
+#define DMA_BUF_SIZE_TX						  (1)
+#define DMA_BUF_SIZE_RX						  (4)
+#define CY_FX_SLFIFO_DMA_BUF_COUNT_P_2_U      (1)                       /* Slave FIFO P_2_U channel buffer count */
+#define CY_FX_SLFIFO_DMA_BUF_COUNT_U_2_P 	  (4)						/* Slave FIFO U_2_P channel buffer count */
+#define  CY_FX_USBUART_DMA_BUF_COUNT      (3)
 
 #define  cdc
 
@@ -45,7 +46,7 @@
 
 #define CY_FX_SLFIFO_DMA_TX_SIZE        (0)	                  /* DMA transfer size is set to infinite */
 #define CY_FX_SLFIFO_DMA_RX_SIZE        (0)	                  /* DMA transfer size is set to infinite */
-#define CY_FX_SLFIFO_THREAD_STACK       (0x0400)                  /* Slave FIFO application thread stack size */
+#define CY_FX_SLFIFO_THREAD_STACK       (0x0800)                  /* Slave FIFO application thread stack size */
 #define CY_FX_SLFIFO_THREAD_PRIORITY    (8)                       /* Slave FIFO application thread priority */
 
 #define SLAVE_FIFO_EP_PRODUCER               0x02    /* EP 2 OUT */

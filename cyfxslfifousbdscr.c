@@ -84,7 +84,8 @@ const uint8_t CyFxUSBBOSDscr[] __attribute__ ((aligned (32))) =
     0x07,                           /* Descriptor size */
     CY_U3P_DEVICE_CAPB_DESCR,       /* Device capability type descriptor */
     CY_U3P_USB2_EXTN_CAPB_TYPE,     /* USB 2.0 extension capability type */
-    0x02,0x00,0x00,0x00,            /* Supported device level features: LPM support  */
+    0x1E,0x64,0x00,0x00,            /* Supported device level features: LPM support, BESL supported,
+                                       Baseline BESL=400 us, Deep BESL=1000 us. */
 
     /* SuperSpeed device capability */
     0x0A,                           /* Descriptor size */
