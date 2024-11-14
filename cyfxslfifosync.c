@@ -108,6 +108,8 @@ CyU3PDmaChannel glI2cRxHandle;   /* I2C Rx channel handle */
 CyU3PDmaChannel glSpiTxHandle;   /* SPI Tx channel handle */
 CyU3PDmaChannel glSpiRxHandle;   /* SPI Rx channel handle */
 
+void CyFxSlFifoApplnInit(void);
+
 /* I2c initialization for EEPROM programming. */
 CyU3PReturnStatus_t
 CyFxFlashProgI2cInit (uint16_t pageLen)
@@ -536,6 +538,29 @@ CyFxFlashProgSpiTransfer (
     return CY_U3P_SUCCESS;
 }
 
+/* Function to read SPI flash device ID */
+static CyU3PReturnStatus_t
+FlashReadID (uint8_t  *wip)
+{
+    uint8_t  location[4];
+    CyU3PReturnStatus_t status = CY_U3P_SUCCESS;
+
+    location[0] = 0x90;  /* Write enable. */
+    location[1] = 0;
+    location[2] = 0;
+    location[3] = 0;
+
+
+    CyU3PSpiSetSsnLine (CyFalse);
+
+    status = CyU3PSpiTransferWords (location, 4, 0, 0);
+    status = CyU3PSpiTransferWords (0, 0, wip, 2);
+    CyU3PSpiSetSsnLine (CyTrue);
+
+    return status;
+}
+
+
 /* Function to erase SPI flash sectors. */
 static CyU3PReturnStatus_t
 CyFxFlashProgEraseSector (
@@ -544,7 +569,7 @@ CyFxFlashProgEraseSector (
      uint8_t  *wip)
 {
     uint32_t temp = 0;
-    uint8_t  location[4], rdBuf[2];
+    uint8_t  location[4];
     CyU3PReturnStatus_t status = CY_U3P_SUCCESS;
 
     if ((!isErase) && (wip == NULL))
@@ -584,9 +609,8 @@ CyFxFlashProgEraseSector (
             return status;
         }
 
-        status = CyU3PSpiTransferWords (0, 0, rdBuf, 2);
+        status = CyU3PSpiTransferWords (0, 0, wip, 2);
         CyU3PSpiSetSsnLine (CyTrue);
-        *wip = rdBuf[0] & 0x1;
     }
 
     return status;
@@ -889,7 +913,6 @@ CyFxSlFifoApplnStart (
     apiRetStatus = CyU3PSetEpConfig(SLAVE_FIFO_EP_PRODUCER, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
-        //CyU3PDebugPrint (4, "CyU3PSetEpConfig failed, Error code = %d\n", apiRetStatus);
         CyFxAppErrorHandler (apiRetStatus);
     }
 
@@ -897,7 +920,6 @@ CyFxSlFifoApplnStart (
     apiRetStatus = CyU3PSetEpConfig(SLAVE_FIFO_EP_CONSUMER, &epCfg);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
-        //CyU3PDebugPrint (4, "CyU3PSetEpConfig failed, Error code = %d\n", apiRetStatus);
         CyFxAppErrorHandler (apiRetStatus);
     }
 
@@ -935,7 +957,6 @@ CyFxSlFifoApplnStart (
 
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
-	// CyU3PDebugPrint (4, "CyU3PDmaChannelCreate failed, Error code = %d\n", apiRetStatus);
 	 CyFxAppErrorHandler(apiRetStatus);
 	}
 
@@ -1026,6 +1047,7 @@ CyFxUSBSetupCB (
     CyU3PReturnStatus_t status = CY_U3P_SUCCESS;
     CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
     CyU3PUartConfig_t uartConfig;
+    CyU3PIoMatrixConfig_t io_cfg;
 
     /* Decode the fields from the setup request. */
     bReqType = (setupdat0 & CY_U3P_USB_REQUEST_TYPE_MASK);
@@ -1162,6 +1184,11 @@ CyFxUSBSetupCB (
                 }
                 break;
 
+            case CY_FX_RQT_SPI_FLASH_ID_READ:
+                FlashReadID(glEp0Buffer);
+                CyU3PUsbSendEP0Data (2, glEp0Buffer);
+                break;
+
             case CY_FX_RQT_SPI_FLASH_READ:
                 CyU3PMemSet (glEp0Buffer, 0, sizeof (glEp0Buffer));
                 status = CyFxFlashProgSpiTransfer (wIndex, wLength,
@@ -1183,7 +1210,8 @@ CyFxUSBSetupCB (
                     }
                     else
                     {
-                        CyU3PUsbAckSetup ();
+                    	CyU3PUsbSendEP0Data (1, (uint8_t *)glFirmwareID);
+                        // CyU3PUsbAckSetup ();
                     }
                 }
                 break;
@@ -1198,6 +1226,40 @@ CyFxUSBSetupCB (
                             );
                     CyU3PUsbSendEP0Data (8, glEp0Buffer);
                 }
+                break;
+
+            case CY_FX_RQT_DISABLE_UART_ENABLE_SPI:
+            	CyFxUSBUARTAppStop();
+            	CyFxSlFifoApplnStop();
+            	// Disable peripherals before
+            	CyU3PUartDeInit ();
+            	CyU3PI2cDeInit();
+            	// CyU3PGpioDeInit();
+            	CyU3PGpifDisable(CyTrue);
+            	CyU3PPibDeInit();
+
+                io_cfg.isDQ32Bit = CyFalse;
+                io_cfg.s0Mode = CY_U3P_SPORT_INACTIVE;
+                io_cfg.s1Mode = CY_U3P_SPORT_INACTIVE;
+                io_cfg.useUart   = CyTrue;
+                io_cfg.useI2C    = CyTrue;
+                io_cfg.useI2S    = CyFalse;
+                io_cfg.useSpi    = CyTrue;
+                io_cfg.lppMode   = CY_U3P_IO_MATRIX_LPP_DEFAULT;
+                /* No GPIOs are enabled. */
+                io_cfg.gpioSimpleEn[0]  = 0;
+                io_cfg.gpioSimpleEn[1]  = 0;
+                io_cfg.gpioComplexEn[0] = 0;
+                io_cfg.gpioComplexEn[1] = 0;
+                CyU3PDeviceConfigureIOMatrix (&io_cfg);
+
+                CyFxSlFifoApplnInit();
+            	/* Initialize the SPI interface for flash of page size 256 bytes. */
+            	CyFxFlashProgSpiInit (0x100);
+
+            	CyFxSlFifoApplnStart();
+
+            	CyU3PUsbSendEP0Data (1, (uint8_t *)glFirmwareID);
                 break;
 
             case 0xE0:
@@ -1418,7 +1480,6 @@ CyFxUSBUARTAppInit (
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
         /* Error handling */
-       // CyU3PDebugPrint (4, "CyU3PGpioSetSimpleConfig failed, error code = %d\n",apiRetStatus);
         CyFxAppErrorHandler(apiRetStatus);
     }
 
@@ -1521,7 +1582,6 @@ CyFxUSBUARTAppInit (
     apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR, 0, (uint8_t *)CyFxUSBStringLangIDDscr);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
-        //CyU3PDebugPrint (4, "USB set string descriptor failed, Error code = %d\n", apiRetStatus);
         CyFxAppErrorHandler(apiRetStatus);
     }
 
@@ -1529,7 +1589,6 @@ CyFxUSBUARTAppInit (
     apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR, 1, (uint8_t *)CyFxUSBManufactureDscr);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
-        //CyU3PDebugPrint (4, "USB set string descriptor failed, Error code = %d\n", apiRetStatus);
         CyFxAppErrorHandler(apiRetStatus);
     }
 
@@ -1537,7 +1596,6 @@ CyFxUSBUARTAppInit (
     apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR, 2, (uint8_t *)CyFxUSBProductDscr);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
-        //CyU3PDebugPrint (4, "USB set string descriptor failed, Error code = %d\n", apiRetStatus);
         CyFxAppErrorHandler(apiRetStatus);
     }
 
@@ -1545,7 +1603,6 @@ CyFxUSBUARTAppInit (
     apiRetStatus = CyU3PConnectState(CyTrue, CyTrue);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
-        //CyU3PDebugPrint (4, "USB Connect failed, Error code = %d\n", apiRetStatus);
         CyFxAppErrorHandler(apiRetStatus);
     }
 }
@@ -1560,9 +1617,6 @@ CyFxSlFifoApplnInit (void)
 
     /* Initialize the I2C interface for the EEPROM of page size 64 bytes. */
     CyFxFlashProgI2cInit (0x40);
-
-//    /* Initialize the SPI interface for flash of page size 256 bytes. */
-//    CyFxFlashProgSpiInit (0x100);
 
     /* Initialize the p-port block. */
     pibClock.clkDiv = 2;
