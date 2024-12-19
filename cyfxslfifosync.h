@@ -34,13 +34,14 @@
  * Set CY_FX_SLFIFO_GPIF_16_32BIT_CONF_SELECT = 1 for 32 bit GPIF data bus.
  */
 
-#define DMA_BUF_SIZE_TX						  (1)
+#define DMA_BUF_SIZE_TX						  (2)
 #define DMA_BUF_SIZE_RX						  (4)
-#define CY_FX_SLFIFO_DMA_BUF_COUNT_P_2_U      (1)                       /* Slave FIFO P_2_U channel buffer count */
+#define CY_FX_SLFIFO_DMA_BUF_COUNT_P_2_U      (2)                       /* Slave FIFO P_2_U channel buffer count */
 #define CY_FX_SLFIFO_DMA_BUF_COUNT_U_2_P 	  (4)						/* Slave FIFO U_2_P channel buffer count */
-#define  CY_FX_USBUART_DMA_BUF_COUNT      (3)
+#define  CY_FX_USBUART_DMA_BUF_COUNT      (2)
 
 #define  cdc
+#define  REVERSE
 
 #define CY_FX_SLFIFO_GPIF_16_32BIT_CONF_SELECT (1)
 
@@ -66,8 +67,13 @@
 
 
 /* Used with FX3 Silicon. */
-#define CY_FX_PRODUCER_PPORT_SOCKET    CY_U3P_PIB_SOCKET_0    /* P-port Socket 0 is producer */
-#define CY_FX_CONSUMER_PPORT_SOCKET    CY_U3P_PIB_SOCKET_3    /* P-port Socket 3 is consumer */
+#ifdef REVERSE
+	#define CY_FX_PRODUCER_PPORT_SOCKET    CY_U3P_PIB_SOCKET_0    /* P-port Socket 0 is producer */
+	#define CY_FX_CONSUMER_PPORT_SOCKET    CY_U3P_PIB_SOCKET_3    /* P-port Socket 3 is consumer */
+#else
+	#define CY_FX_PRODUCER_PPORT_SOCKET    CY_U3P_PIB_SOCKET_3    /* P-port Socket 0 is producer */
+	#define CY_FX_CONSUMER_PPORT_SOCKET    CY_U3P_PIB_SOCKET_0    /* P-port Socket 3 is consumer */
+#endif
 
 /* Extern definitions for the USB Descriptors */
 extern const uint8_t CyFxUSB20DeviceDscr[];

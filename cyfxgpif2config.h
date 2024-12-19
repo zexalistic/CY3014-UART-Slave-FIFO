@@ -1,6 +1,6 @@
 /*
- * Project Name: sync_slave_fifo_2bit.cyfx
- * Time : 06/15/2023 17:16:28
+ * Project Name: GPIFII_Designer_sync_SlaveFIFO.cyfx
+ * Time : 12/06/2024 17:41:56
  * Device Type: FX3
  * Project Type: GPIF2
  *
@@ -13,8 +13,8 @@
  * 
  */
 
-#ifndef _INCLUDED_SYNC_SLAVE_FIFO_2BIT_CYDSN_
-#define _INCLUDED_SYNC_SLAVE_FIFO_2BIT_CYDSN_
+#ifndef _INCLUDED_CY3014_
+#define _INCLUDED_CY3014_
 #include "cyu3types.h"
 #include "cyu3gpif.h"
 
@@ -91,9 +91,9 @@ uint32_t CyFxGpifRegValue[]  = {
     0x00000000,  /*  CY_U3P_PIB_GPIF_INTR_MASK */
     0x00000082,  /*  CY_U3P_PIB_GPIF_SERIAL_IN_CONFIG */
     0x00000782,  /*  CY_U3P_PIB_GPIF_SERIAL_OUT_CONFIG */
-    0x00000500,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_DIRECTION */
-    0x0000FFCF,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_DEFAULT */
-    0x000000BF,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_POLARITY */
+    0x00001500,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_DIRECTION */
+    0x0000FF8F,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_DEFAULT */
+    0x000000FF,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_POLARITY */
     0x00000000,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_TOGGLE */
     0x00000000,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_SELECT */
     0x00000000,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_SELECT */
@@ -101,7 +101,7 @@ uint32_t CyFxGpifRegValue[]  = {
     0x00000000,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_SELECT */
     0x00000013,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_SELECT */
     0x00000010,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_SELECT */
-    0x00000000,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_SELECT */
+    0x00000017,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_SELECT */
     0x00000000,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_SELECT */
     0x00000000,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_SELECT */
     0x00000000,  /*  CY_U3P_PIB_GPIF_CTRL_BUS_SELECT */
@@ -173,4 +173,4 @@ const CyU3PGpifConfig_t CyFxGpifConfig  = {
     CyFxGpifRegValue
 };
 
-#endif   /* _INCLUDED_SYNC_SLAVE_FIFO_2BIT_CYDSN_ */
+#endif   /* _INCLUDED_CY3014_ */

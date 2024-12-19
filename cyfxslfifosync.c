@@ -86,6 +86,9 @@ volatile uint16_t glPktsPending = 0;            /* Number of packets that have b
 #define GET_LINE_CODING        0x21
 #define SET_CONTROL_LINE_STATE 0x22
 
+#define PROGRAM_B (57)
+#define FLASH_SEL (45)
+
 
 CyBool_t          glIsApplnActive = CyFalse;
 CyU3PThread slFifoAppThread;	        /* Slave FIFO application thread structure */
@@ -107,6 +110,81 @@ CyU3PDmaChannel glI2cTxHandle;   /* I2C Tx channel handle */
 CyU3PDmaChannel glI2cRxHandle;   /* I2C Rx channel handle */
 CyU3PDmaChannel glSpiTxHandle;   /* SPI Tx channel handle */
 CyU3PDmaChannel glSpiRxHandle;   /* SPI Rx channel handle */
+
+/* GPIO interrupt callback handler. This is received from
+ * the interrupt context. So DebugPrint API is not available
+ * from here. Set an event in the event group so that the
+ * GPIO thread can print the event information. */
+void CyFxGpioIntrCb (
+        uint8_t gpioId /* Indicates the pin that triggered the interrupt */
+        )
+{
+}
+
+void
+CyFxGpioInit (CyBool_t isEnableSPI)
+{
+    CyU3PGpioClock_t gpioClock;
+    CyU3PGpioSimpleConfig_t gpioConfig;
+    CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+
+    /* Init the GPIO module */
+    gpioClock.fastClkDiv = 2;
+    gpioClock.slowClkDiv = 0;
+    gpioClock.simpleDiv = CY_U3P_GPIO_SIMPLE_DIV_BY_2;
+    gpioClock.clkSrc = CY_U3P_SYS_CLK;
+    gpioClock.halfDiv = 0;
+
+    apiRetStatus = CyU3PGpioInit(&gpioClock, CyFxGpioIntrCb);
+
+    /* Configure GPIO 45 as input with interrupt enabled for both edges */
+    if(isEnableSPI)
+    {
+        gpioConfig.outValue = CyTrue;
+        gpioConfig.inputEn = CyTrue;
+        gpioConfig.driveLowEn = CyFalse;
+        gpioConfig.driveHighEn = CyFalse;
+    }
+    else
+    {
+        gpioConfig.outValue = CyFalse;
+        gpioConfig.inputEn = CyFalse;
+        gpioConfig.driveLowEn = CyTrue;
+        gpioConfig.driveHighEn = CyTrue;
+    }
+
+    gpioConfig.intrMode = CY_U3P_GPIO_NO_INTR;
+    apiRetStatus = CyU3PGpioSetSimpleConfig(45, &gpioConfig);
+
+    /* Override GPIO 57 as this pin is associated with GPIF Control signal.
+     * The IO cannot be selected as GPIO by CyU3PDeviceConfigureIOMatrix call
+     * as it is part of the GPIF IOs. Override API call must be made with
+     * caution as this will change the functionality of the pin. If the IO
+     * line is used as part of GPIF and is connected to some external device,
+     * then the line will no longer behave as a GPIF IO.. Here CTL4 line is
+     * not used and so it is safe to override.  */
+    apiRetStatus = CyU3PDeviceGpioOverride (PROGRAM_B, CyTrue);
+
+    /* Configure GPIO 57 as output */
+    gpioConfig.outValue = CyTrue;
+    gpioConfig.driveLowEn = CyTrue;
+    gpioConfig.driveHighEn = CyTrue;
+    gpioConfig.inputEn = CyFalse;
+    gpioConfig.intrMode = CY_U3P_GPIO_NO_INTR;
+    apiRetStatus = CyU3PGpioSetSimpleConfig(PROGRAM_B, &gpioConfig);
+}
+
+void toggle_program_b(void)
+{
+
+	CyU3PGpioSetValue(PROGRAM_B, CyFalse);
+
+    CyU3PBusyWait(50000);
+    CyU3PBusyWait(50000);
+
+    CyU3PGpioSetValue(PROGRAM_B, CyTrue);
+}
+
 
 void CyFxSlFifoApplnInit(void);
 
@@ -436,8 +514,6 @@ CyFxFlashProgSpiTransfer (
     buf_p.status = 0;
 
     byteAddress  = pageAddress * glSpiPageSize;
-    CyU3PDebugPrint (2, "SPI access - addr: 0x%x, size: 0x%x, pages: 0x%x.\r\n",
-            byteAddress, byteCount, pageCount);
 
     while (pageCount != 0)
     {
@@ -925,7 +1001,7 @@ CyFxSlFifoApplnStart (
 
     /* Create a DMA MANUAL channel for U2P transfer.
      * DMA size is set based on the USB speed. */
-    dmaCfg.size  = DMA_BUF_SIZE_TX* 1024;
+    dmaCfg.size  = DMA_BUF_SIZE_TX * 1024;
     dmaCfg.count = CY_FX_SLFIFO_DMA_BUF_COUNT_U_2_P;
     dmaCfg.prodSckId = CY_FX_PRODUCER_USB_SOCKET;
     dmaCfg.consSckId = CY_FX_CONSUMER_PPORT_SOCKET;
@@ -947,7 +1023,7 @@ CyFxSlFifoApplnStart (
     }
 
     /* Create a DMA AUTO channel for P2U transfer. */
-    dmaCfg.size  = DMA_BUF_SIZE_RX*1024; //increase buffer size for higher performance
+    dmaCfg.size  = DMA_BUF_SIZE_RX * 1024; //increase buffer size for higher performance
     dmaCfg.count = CY_FX_SLFIFO_DMA_BUF_COUNT_P_2_U; // increase buffer count for higher performance
     dmaCfg.prodSckId = CY_FX_PRODUCER_PPORT_SOCKET;
     dmaCfg.consSckId = CY_FX_CONSUMER_USB_SOCKET;
@@ -1229,12 +1305,14 @@ CyFxUSBSetupCB (
                 break;
 
             case CY_FX_RQT_DISABLE_UART_ENABLE_SPI:
+            	CyU3PGpioSetValue(FLASH_SEL, CyTrue);
+
             	CyFxUSBUARTAppStop();
             	CyFxSlFifoApplnStop();
             	// Disable peripherals before
             	CyU3PUartDeInit ();
             	CyU3PI2cDeInit();
-            	// CyU3PGpioDeInit();
+            	CyU3PGpioDeInit();
             	CyU3PGpifDisable(CyTrue);
             	CyU3PPibDeInit();
 
@@ -1246,12 +1324,36 @@ CyFxUSBSetupCB (
                 io_cfg.useI2S    = CyFalse;
                 io_cfg.useSpi    = CyTrue;
                 io_cfg.lppMode   = CY_U3P_IO_MATRIX_LPP_DEFAULT;
-                /* No GPIOs are enabled. */
                 io_cfg.gpioSimpleEn[0]  = 0;
-                io_cfg.gpioSimpleEn[1]  = 0;
+                io_cfg.gpioSimpleEn[1]  = 0x00002000; /* GPIO 45 */
                 io_cfg.gpioComplexEn[0] = 0;
                 io_cfg.gpioComplexEn[1] = 0;
                 CyU3PDeviceConfigureIOMatrix (&io_cfg);
+
+                // CyFxGpioInit(CyTrue);
+                CyU3PGpioClock_t gpioClock;
+                CyU3PGpioSimpleConfig_t gpioConfig;
+                CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+
+                /* Init the GPIO module */
+                gpioClock.fastClkDiv = 2;
+                gpioClock.slowClkDiv = 0;
+                gpioClock.simpleDiv = CY_U3P_GPIO_SIMPLE_DIV_BY_2;
+                gpioClock.clkSrc = CY_U3P_SYS_CLK;
+                gpioClock.halfDiv = 0;
+
+                apiRetStatus = CyU3PGpioInit(&gpioClock, CyFxGpioIntrCb);
+
+                /* Configure GPIO 45 as input with interrupt enabled for both edges */
+                gpioConfig.outValue = CyTrue;
+                gpioConfig.inputEn = CyTrue;
+                gpioConfig.driveLowEn = CyFalse;
+                gpioConfig.driveHighEn = CyFalse;
+
+                gpioConfig.intrMode = CY_U3P_GPIO_NO_INTR;
+                apiRetStatus = CyU3PGpioSetSimpleConfig(45, &gpioConfig);
+
+                // CyU3PGpioSetValue(FLASH_SEL, CyTrue);
 
                 CyFxSlFifoApplnInit();
             	/* Initialize the SPI interface for flash of page size 256 bytes. */
@@ -1627,7 +1729,6 @@ CyFxSlFifoApplnInit (void)
     apiRetStatus = CyU3PPibInit(CyTrue, &pibClock);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
-        //CyU3PDebugPrint (4, "P-port Initialization failed, Error Code = %d\n",apiRetStatus);
         CyFxAppErrorHandler(apiRetStatus);
     }
 
@@ -1635,14 +1736,13 @@ CyFxSlFifoApplnInit (void)
     apiRetStatus = CyU3PGpifLoad (&CyFxGpifConfig);
     if (apiRetStatus != CY_U3P_SUCCESS)
     {
-        //CyU3PDebugPrint (4, "CyU3PGpifLoad failed, Error Code = %d\n",apiRetStatus);
         CyFxAppErrorHandler(apiRetStatus);
     }
 
 // set the watermark for thread_0 (Ingress) to 5
-    CyU3PGpifSocketConfigure (0,CY_U3P_PIB_SOCKET_0,5,CyFalse,1);
+    CyU3PGpifSocketConfigure (0,CY_U3P_PIB_SOCKET_0,4,CyFalse,1);
 // set the watermark for thread_3 (Egress) to 0
-    CyU3PGpifSocketConfigure (3,CY_U3P_PIB_SOCKET_3,0,CyFalse,1);
+    CyU3PGpifSocketConfigure (3,CY_U3P_PIB_SOCKET_3,3,CyFalse,1);
 
     /* Start the state machine. */
     apiRetStatus = CyU3PGpifSMStart (RESET, ALPHA_RESET);
@@ -1798,7 +1898,7 @@ main (void)
      * accesses. When used in simple cases, it can decrease performance due to large 
      * number of cache flushes and cleans and also it adds to the complexity of the
      * code. */
-    status = CyU3PDeviceCacheControl (CyTrue, CyFalse, CyFalse);
+    status = CyU3PDeviceCacheControl (CyTrue, CyTrue, CyFalse);
     if (status != CY_U3P_SUCCESS)
     {
         goto handle_fatal_error;
@@ -1822,7 +1922,7 @@ main (void)
 #endif
     /* No GPIOs are enabled. */
     io_cfg.gpioSimpleEn[0]  = 0;
-    io_cfg.gpioSimpleEn[1]  = 0;
+    io_cfg.gpioSimpleEn[1]  = 0x02002000; /* GPIO 45 */
     io_cfg.gpioComplexEn[0] = 0;
     io_cfg.gpioComplexEn[1] = 0;
     status = CyU3PDeviceConfigureIOMatrix (&io_cfg);
@@ -1830,6 +1930,13 @@ main (void)
     {
         goto handle_fatal_error;
     }
+
+    CyFxGpioInit(CyFalse);
+
+    CyU3PBusyWait(50000);
+    CyU3PBusyWait(50000);
+
+    // toggle_program_b();
 
     /* This is a non returnable call for initializing the RTOS kernel */
     CyU3PKernelEntry ();

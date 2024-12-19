@@ -1,13 +1,12 @@
-import clr
 import os
-import math
 import logging
+import clr
 import time
+import math
 
-clr.AddReference(os.path.join(os.path.dirname(__file__), 'CyUSB.dll'))
+clr.AddReference(os.path.dirname(__file__) + '\CyUSB.dll')
 from System import UInt32, Single, Int32, Array
 from System import Byte, Boolean
-
 from CyUSB import USBDeviceList
 from CyUSB import CyUSBDevice
 from CyUSB import CyConst
@@ -27,17 +26,42 @@ class cyUSBWrapClass:
             self.BulkIn6 = self.myDevice.EndPointOf(0x86)
             self.CtrlEndPt = self.myDevice.ControlEndPt
 
-    def ep2Write(self, data):
+    def ep2Write(self, data: list) -> bool:
+        """
+         Write to EP2
+
+        :param data: list of tx data
+        :return: True if success
+        """
         data_listU = [Byte(data[i]) for i in range(len(data))]
         res = self.BulkOut2.XferData(data_listU, Int32(len(data_listU)))
         return res
 
-    def ep6Read(self, data):
+    def svDly(self, tim: int):
+        pass
+
+    def ep6Read(self, data: list):
         data_listU = [Byte(data[i]) for i in range(len(data))]
         ret = self.BulkIn6.XferData(data_listU, Int32(len(data_listU)))
         result_list = list(ret[1])
         resultData_list = [str(hex(result_list[i])) for i in range(ret[2])]
         return resultData_list
+
+    def ep6_read(self, data: list):
+        """
+        read from EP6
+
+        :param data: list of rx buffer
+        :return:
+        """
+        for i in range(10):
+            ret_ep6 = self.BulkIn6.XferData([Byte(0) for i in range(len(data))], Int32(len(data)))
+            if ret_ep6[2] == 0 or ret_ep6[0] is False:
+                time.sleep(0.01)
+                continue
+            else:
+                return ret_ep6[1], ret_ep6[2]
+        return [], 0
 
     def read_fw_id(self) -> str:
         """
@@ -307,12 +331,15 @@ class cyUSBWrapClass:
         :param bin_file_name: name of bin file
         :return: None
         """
+        logging.info('Upgrading EEPROM...')
         with open(bin_file_name, 'rb') as fp:
             img = fp.read()
             img = list(img)
             idx = 0
             while idx <= len(img):  # The lower 64KB
                 data = img[idx:idx + 128]
+                prcnt = round(100 * idx / len(img), 2)
+                logging.info(f'Percentage: {prcnt}%')
                 if idx < 0x10000:
                     self.write_to_i2c_eeprom(0, idx, data)
                     time.sleep(0.1)  # maximum 5ms write delay
@@ -321,6 +348,7 @@ class cyUSBWrapClass:
                     self.write_to_i2c_eeprom(4, idx, data)
                     time.sleep(0.1)  # maximum 5ms write delay
                     idx += 128
+        logging.info('Upgrade EEPROM done.')
 
     def dump_eeprom_via_i2c(self, bin_file_name: str):
         """
@@ -329,17 +357,22 @@ class cyUSBWrapClass:
         :param bin_file_name: name of bin file
         :return: None
         """
+        logging.info('Dumping eerprom...')
         with open(bin_file_name, 'wb') as fp:
             idx = 0
             while idx < 0x10000:  # The lower 64KB
                 data = self.read_from_i2c_eeprom(0, idx, 128)
                 fp.write(bytes(data))
+                prcnt = round(100 * idx / 0x20000, 2)
+                logging.info(f'Percentage: {prcnt}%')
                 idx += 128
             while idx < 0x20000:  # The upper 64KB
                 data = self.read_from_i2c_eeprom(4, idx, 128)
                 fp.write(bytes(data))
+                prcnt = round(100 * idx / 0x20000, 2)
+                logging.info(f'Percentage: {prcnt}%')
                 idx += 128
-
+        logging.info('Dumping EEPROM done.')
     def upgrade_fpga_firmware_over_spi(self, bin_file_name: str):
         """
         Upgrade fpga firmware to flash over SPI bus
@@ -403,12 +436,18 @@ if __name__ == '__main__':
     mdioFirstPort = 0
     MyDevice = cyUSBWrapClass(bytes("0x47c2", 'utf-8'), 0)
 
+    # ret = MyDevice.ep2Write([0,1,2,3])
+    # print(ret)
+
+    ret = MyDevice.ep6_read([0, 5, 6, 7])
+    print(ret)
+
     # ret = MyDevice.switch_from_uart_to_spi()
     # print(ret)
 
-    MyDevice.upgrade_fpga_firmware_over_spi('cstb.bit')
-    time.sleep(1)
-    MyDevice.dump_flash_over_spi('out2.bin', 5840)
+    # MyDevice.upgrade_fpga_firmware_over_spi('a.bin')
+    # time.sleep(1)
+    # MyDevice.dump_flash_over_spi('out2.bin', 5840)
 
     # MyDevice.upgrade_eeprom_via_i2c('USBFlashProg.img')
     # MyDevice.reset_fx3()
