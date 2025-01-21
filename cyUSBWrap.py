@@ -1,12 +1,13 @@
-import os
-import logging
 import clr
-import time
+import os
 import math
+import logging
+import time
 
-clr.AddReference(os.path.dirname(__file__) + '\CyUSB.dll')
+clr.AddReference(os.path.join(os.path.dirname(__file__), 'CyUSB.dll'))
 from System import UInt32, Single, Int32, Array
 from System import Byte, Boolean
+
 from CyUSB import USBDeviceList
 from CyUSB import CyUSBDevice
 from CyUSB import CyConst
@@ -17,7 +18,7 @@ class cyUSBWrapClass:
         self.CardID = USBCardID
         self.SMIPort = SMIPort
         self.usbDevices = USBDeviceList(Byte(0x1))
-        # print(self.usbDevices.Count)
+        self.spi_transfer_block_size = 4096
         if self.usbDevices.Count == 0:
             print("cyUSB Device Count = 0")
         else:
@@ -26,42 +27,29 @@ class cyUSBWrapClass:
             self.BulkIn6 = self.myDevice.EndPointOf(0x86)
             self.CtrlEndPt = self.myDevice.ControlEndPt
 
-    def ep2Write(self, data: list) -> bool:
-        """
-         Write to EP2
-
-        :param data: list of tx data
-        :return: True if success
-        """
+    def ep2Write(self, data):
         data_listU = [Byte(data[i]) for i in range(len(data))]
         res = self.BulkOut2.XferData(data_listU, Int32(len(data_listU)))
         return res
 
-    def svDly(self, tim: int):
-        pass
-
-    def ep6Read(self, data: list):
+    def ep6Read(self, data):
         data_listU = [Byte(data[i]) for i in range(len(data))]
         ret = self.BulkIn6.XferData(data_listU, Int32(len(data_listU)))
         result_list = list(ret[1])
         resultData_list = [str(hex(result_list[i])) for i in range(ret[2])]
         return resultData_list
 
-    def ep6_read(self, data: list):
+    def ep6_read(self, data):
         """
         read from EP6
 
         :param data: list of rx buffer
         :return:
         """
-        for i in range(10):
-            ret_ep6 = self.BulkIn6.XferData([Byte(0) for i in range(len(data))], Int32(len(data)))
-            if ret_ep6[2] == 0 or ret_ep6[0] is False:
-                time.sleep(0.01)
-                continue
-            else:
-                return ret_ep6[1], ret_ep6[2]
-        return [], 0
+        data_listU = [Byte(data[i]) for i in range(len(data))]
+        ret = self.BulkIn6.XferData(data_listU, (Int32)(len(data_listU)))
+        return ret[1]
+
 
     def read_fw_id(self) -> str:
         """
@@ -373,6 +361,7 @@ class cyUSBWrapClass:
                 logging.info(f'Percentage: {prcnt}%')
                 idx += 128
         logging.info('Dumping EEPROM done.')
+
     def upgrade_fpga_firmware_over_spi(self, bin_file_name: str):
         """
         Upgrade fpga firmware to flash over SPI bus
@@ -386,6 +375,7 @@ class cyUSBWrapClass:
 
         # Erase flash in 64KB blocks
         logging.info('Erasing flash..')
+        start_time = time.perf_counter()
         number_of_blocks = math.ceil(len(img) / 0x10000)
         for blk in range(number_of_blocks):
             if not self.erase_spi_flash_block(blk):
@@ -393,20 +383,23 @@ class cyUSBWrapClass:
             self.wait_for_spi_flash_ready(timeout=10)
             prcnt = round(100 * blk / number_of_blocks, 2)
             logging.info(f'Percentage: {prcnt}%')
-        logging.info('Erasing flash done.')
+        end_time = time.perf_counter()
+        logging.info(f'Erasing flash done. It takes {round(end_time-start_time)} seconds.')
 
         logging.info('Writing flash..')
+        start_time = time.perf_counter()
         idx = 0
         while idx <= len(img):
-            data = img[idx:idx + 256]
+            data = img[idx:idx + self.spi_transfer_block_size]
             if not self.write_to_spi_flash(idx // 256, data):
                 logging.error(f'SPI write flash page {idx // 256} fail.')
             self.wait_for_spi_flash_ready(timeout=10)
-            idx += 256
-            if ((idx / 256) % 10) == 0:
+            idx += self.spi_transfer_block_size
+            if ((idx / self.spi_transfer_block_size) % 10) == 0:
                 prcnt = round(100 * idx / len(img), 2)
                 logging.info(f'Percentage: {prcnt}%')
-        logging.info('Writing flash done.')
+        end_time = time.perf_counter()
+        logging.info(f'Writing flash done. It takes {round(end_time-start_time)} seconds.')
 
     def dump_flash_over_spi(self, bin_file_name: str, length: int):
         """
@@ -419,37 +412,37 @@ class cyUSBWrapClass:
         number_of_pages = length * 4
         idx = 0
         logging.info('Dumping flash..')
+        start_time = time.perf_counter()
         with open(bin_file_name, 'wb') as fp:
             while idx < number_of_pages:
-                data = self.read_from_spi_flash(idx, 256)
+                data = self.read_from_spi_flash(idx, self.spi_transfer_block_size)
                 self.wait_for_spi_flash_ready(timeout=10)
                 fp.write(bytes(data))
-                idx += 1
+                idx += int(self.spi_transfer_block_size/256)
                 if (idx % 100) == 0:
                     prcnt = round(100 * idx / number_of_pages, 2)
                     logging.info(f'Percentage: {prcnt}%')
-        logging.info('Dumping flash done.')
+        end_time = time.perf_counter()
+        logging.info(f'Dumping flash done. It takes {round(end_time-start_time)} seconds.')
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     mdioFirstPort = 0
     MyDevice = cyUSBWrapClass(bytes("0x47c2", 'utf-8'), 0)
-
-    # ret = MyDevice.ep2Write([0,1,2,3])
-    # print(ret)
-
-    ret = MyDevice.ep6_read([0, 5, 6, 7])
-    print(ret)
-
+    #
     # ret = MyDevice.switch_from_uart_to_spi()
     # print(ret)
-
-    # MyDevice.upgrade_fpga_firmware_over_spi('a.bin')
+    #
+    # ret = MyDevice.read_spi_flash_id()
+    # print(hex(ret))
+    # #
+    # # # MyDevice.upgrade_fpga_firmware_over_spi('RELEASE_11_BOOT_6103_814.1_0024_3_20_1.bin')
+    # MyDevice.upgrade_fpga_firmware_over_spi('boot.bin')
     # time.sleep(1)
-    # MyDevice.dump_flash_over_spi('out2.bin', 5840)
+    MyDevice.dump_flash_over_spi('out4.bin', 5967)
 
-    # MyDevice.upgrade_eeprom_via_i2c('USBFlashProg.img')
+    # MyDevice.upgrade_eeprom_via_i2c('SlaveFifoSync.img')
     # MyDevice.reset_fx3()
     # MyDevice.dump_eeprom_via_i2c('out.bin')
 
@@ -458,11 +451,17 @@ if __name__ == '__main__':
     # ret = MyDevice.read_fw_version()
     # print(ret)
 
-    # ret = MyDevice.read_spi_flash_id()
-    # print(hex(ret))
-
-    # ret = MyDevice.read_from_spi_flash(2, 256)
-    # print(ret)
+    # with open('out4.bin', 'wb') as fp:
+    #     for idx in range(4, 8):
+    #         data = MyDevice.read_from_spi_flash(flash_page_number=idx, length=256)
+    #         MyDevice.wait_for_spi_flash_ready(timeout=10)
+    #         fp.write(bytes(data))
+    #
+    # with open('out5.bin', 'wb') as fp:
+    #     for idx in range(2, 4):
+    #         data = MyDevice.read_from_spi_flash(flash_page_number=idx*2, length=512)
+    #         MyDevice.wait_for_spi_flash_ready(timeout=10)
+    #         fp.write(bytes(data))
     # ret = MyDevice.erase_spi_flash_block(0)
     # print(ret)
     # MyDevice.wait_for_spi_flash_ready(timeout=10)
